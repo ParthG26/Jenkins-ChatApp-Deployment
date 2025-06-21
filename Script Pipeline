@@ -1,0 +1,43 @@
+node{
+    def REMOTE_USER = "ubuntu"
+    def REMOTE_HOST = "10.0.3.213"
+    def REMOTE_DIR = "/chatapp"
+    
+    stage('Cloning repo'){
+        git branch: 'main', 
+        credentialsId: '57678de1-cf72-48eb-bdcd-894e30f7e016', 
+        url: 'https://github.com/ParthG26/ChatApp-Application-Deployment.git'
+    }
+    stage('Copy files to Remote'){
+        sh """
+        scp -r "$WORKSPACE"/* $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/
+        """
+    }
+    stage("Install Requirements"){
+        sh """
+        ssh $REMOTE_USER@$REMOTE_HOST '
+            cd $REMOTE_DIR &&
+            source venv/bin/activate &&
+            pip install -r requirements.txt
+        '
+        """
+    }
+
+    stage('Run Migrations') {
+        sh """
+        ssh $REMOTE_USER@$REMOTE_HOST '
+            cd $REMOTE_DIR/fundoo &&
+            source $REMOTE_DIR/venv/bin/activate &&
+            python3 manage.py migrate
+        '
+        """
+    }
+
+    stage('Restart Gunicorn') {
+        sh """
+        ssh $REMOTE_USER@$REMOTE_HOST '
+            sudo systemctl restart gunicorn
+        '
+        """
+    }
+}
